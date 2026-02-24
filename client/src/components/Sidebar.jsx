@@ -11,11 +11,7 @@ export default function Sidebar({ view, onViewChange, theme, toggleTheme }) {
     <aside className="sidebar">
       <div className="sidebar-top">
         <div className="sidebar-logo">
-          <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
-            <rect width="32" height="32" rx="8" fill="#390179" />
-            <path d="M10 16.5L14.5 21L22 11" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>KrispCall</span>
+          <img src="/logo.png" alt="Logo" width="30" height="30" style={{ borderRadius: 6 }} />
         </div>
 
         <nav className="sidebar-nav">
