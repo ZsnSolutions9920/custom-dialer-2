@@ -10,15 +10,25 @@ async function setup() {
     await db.query(schema);
     console.log('Tables created successfully.');
 
-    // Create a default agent
-    const hash = await bcrypt.hash('agent123', 10);
+    // Create Agent One
+    const hash1 = await bcrypt.hash('agent123', 10);
     await db.query(
-      `INSERT INTO kc_agents (name, email, password_hash)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (email) DO NOTHING`,
-      ['Agent One', 'agent@krispcall.com', hash]
+      `INSERT INTO kc_agents (name, email, password_hash, phone_number)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO UPDATE SET phone_number = EXCLUDED.phone_number`,
+      ['Agent One', 'agent@krispcall.com', hash1, '+18888538185']
     );
-    console.log('Default agent created: agent@krispcall.com / agent123');
+    console.log('Agent One created: agent@krispcall.com / agent123 → +18888538185');
+
+    // Create Agent Two
+    const hash2 = await bcrypt.hash('agent234', 10);
+    await db.query(
+      `INSERT INTO kc_agents (name, email, password_hash, phone_number)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (email) DO UPDATE SET phone_number = EXCLUDED.phone_number`,
+      ['Agent Two', 'agent2@krispcall.com', hash2, '+18333002882']
+    );
+    console.log('Agent Two created: agent2@krispcall.com / agent234 → +18333002882');
 
     process.exit(0);
   } catch (err) {

@@ -6,13 +6,31 @@ const db = require('../db');
 const router = express.Router();
 
 // This endpoint is called by Twilio when an outgoing call is initiated from the browser
-router.post('/voice', (req, res) => {
+router.post('/voice', async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const to = req.body.To;
+  const from = req.body.From; // e.g. "client:agent_1"
 
   if (to) {
+    // Look up the agent's assigned phone number
+    let callerId = process.env.TWILIO_PHONE_NUMBER; // fallback
+    const match = from && from.match(/agent_(\d+)/);
+    if (match) {
+      try {
+        const result = await db.query(
+          'SELECT phone_number FROM kc_agents WHERE id = $1',
+          [match[1]]
+        );
+        if (result.rows[0] && result.rows[0].phone_number) {
+          callerId = result.rows[0].phone_number;
+        }
+      } catch (err) {
+        console.error('Failed to look up agent phone number:', err);
+      }
+    }
+
     const dial = twiml.dial({
-      callerId: process.env.TWILIO_PHONE_NUMBER,
+      callerId,
       answerOnBridge: true,
     });
     dial.number(to);

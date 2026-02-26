@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS kc_agents (
   name          VARCHAR(100) NOT NULL,
   email         VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  phone_number  VARCHAR(20),
   is_active     BOOLEAN DEFAULT true,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add phone_number column if upgrading from older schema
+ALTER TABLE kc_agents ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20);
 
 CREATE TABLE IF NOT EXISTS kc_call_logs (
   id           SERIAL PRIMARY KEY,
