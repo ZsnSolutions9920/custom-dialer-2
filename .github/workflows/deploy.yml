@@ -25,4 +25,4 @@ jobs:
             cd server && npm install --production
             cd ../client && npm install && npm run build
             cd ..
-            pm2 restart dialer2
+            pm2 restart dialer-2
