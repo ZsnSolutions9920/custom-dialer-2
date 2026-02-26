@@ -57,6 +57,29 @@ router.patch('/:callSid', authenticate, async (req, res) => {
   }
 });
 
+// Get monthly billing totals (all agents)
+router.get('/billing', authenticate, async (req, res) => {
+  try {
+    const rate = parseFloat(process.env.RATE_PER_MINUTE) || 0;
+    const result = await db.query(
+      `SELECT
+         COALESCE(SUM(duration), 0) AS total_seconds,
+         ROUND(COALESCE(SUM(duration), 0) / 60.0, 2) AS total_minutes,
+         ROUND(COALESCE(SUM(duration), 0) / 60.0 * $1, 2) AS total_cost
+       FROM kc_call_logs
+       WHERE started_at >= date_trunc('month', NOW())
+         AND status = 'completed'`,
+      [rate]
+    );
+    const data = result.rows[0] || { total_seconds: 0, total_minutes: 0, total_cost: 0 };
+    data.rate_per_minute = rate;
+    res.json(data);
+  } catch (err) {
+    console.error('Billing query error:', err);
+    res.status(500).json({ error: 'Failed to fetch billing' });
+  }
+});
+
 // Get call history for the agent
 router.get('/history', authenticate, async (req, res) => {
   try {

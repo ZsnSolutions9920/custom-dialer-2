@@ -49,4 +49,6 @@ export const api = {
     }),
 
   getCallHistory: () => request('/calls/history'),
+
+  getBilling: () => request('/calls/billing'),
 };

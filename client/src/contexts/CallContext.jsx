@@ -13,10 +13,13 @@ export function CallProvider({ children }) {
   const [isMuted, setIsMuted] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
   const timerRef = useRef(null);
+  const durationRef = useRef(0);
 
   const startTimer = useCallback(() => {
     setCallDuration(0);
+    durationRef.current = 0;
     timerRef.current = setInterval(() => {
+      durationRef.current += 1;
       setCallDuration((d) => d + 1);
     }, 1000);
   }, []);
@@ -129,7 +132,8 @@ export function CallProvider({ children }) {
       stopTimer();
       api.updateCall(incomingCall.parameters.CallSid, {
         status: 'completed',
-      }).catch(() => {});
+        duration: durationRef.current,
+      }).catch((err) => console.error('Failed to update call:', err));
       setTimeout(() => {
         setCallState('idle');
         setCallDuration(0);
@@ -154,17 +158,28 @@ export function CallProvider({ children }) {
       });
 
       callRef.current = call;
+      let callLogged = false;
 
-      call.on('ringing', () => setCallState('ringing'));
-
-      call.on('accept', () => {
-        setCallState('open');
-        startTimer();
+      // Log the call as soon as we have a CallSid
+      const ensureLogged = () => {
+        if (callLogged) return;
+        callLogged = true;
         api.logCall({
           callSid: call.parameters.CallSid,
           phoneNumber,
           direction: 'outbound',
-        }).catch(() => {});
+        }).catch((err) => console.error('Failed to log call:', err));
+      };
+
+      call.on('ringing', () => {
+        setCallState('ringing');
+        ensureLogged();
+      });
+
+      call.on('accept', () => {
+        setCallState('open');
+        startTimer();
+        ensureLogged();
       });
 
       call.on('disconnect', () => {
@@ -172,7 +187,8 @@ export function CallProvider({ children }) {
         stopTimer();
         api.updateCall(call.parameters.CallSid, {
           status: 'completed',
-        }).catch(() => {});
+          duration: durationRef.current,
+        }).catch((err) => console.error('Failed to update call:', err));
         setTimeout(() => {
           setCallState('idle');
           setCallDuration(0);
@@ -183,6 +199,10 @@ export function CallProvider({ children }) {
       call.on('cancel', () => {
         setCallState('closed');
         stopTimer();
+        ensureLogged();
+        api.updateCall(call.parameters.CallSid, {
+          status: 'canceled',
+        }).catch((err) => console.error('Failed to update call:', err));
         setTimeout(() => {
           setCallState('idle');
           setCallDuration(0);
@@ -191,6 +211,10 @@ export function CallProvider({ children }) {
 
       call.on('error', (err) => {
         console.error('Call error:', err);
+        ensureLogged();
+        api.updateCall(call.parameters.CallSid, {
+          status: 'failed',
+        }).catch(() => {});
         setCallState('idle');
         stopTimer();
         setCallDuration(0);

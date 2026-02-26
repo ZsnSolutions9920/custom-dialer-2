@@ -1,16 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
+import { useSocket } from '../contexts/SocketContext';
 
 export default function CallHistory() {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
-  useEffect(() => {
+  const fetchHistory = useCallback(() => {
     api.getCallHistory()
       .then(setCalls)
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  // Auto-refresh when calls are logged or updated via socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('call:logged', fetchHistory);
+    socket.on('call:updated', fetchHistory);
+    return () => {
+      socket.off('call:logged', fetchHistory);
+      socket.off('call:updated', fetchHistory);
+    };
+  }, [socket, fetchHistory]);
 
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';

@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import Dialer from './components/Dialer';
 import CallHistory from './components/CallHistory';
+import BillingBar from './components/BillingBar';
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -36,8 +37,11 @@ export default function App() {
             toggleTheme={toggleTheme}
           />
           <main className="main-content">
-            {view === 'dialer' && <Dialer />}
-            {view === 'history' && <CallHistory />}
+            <div className="main-inner">
+              <BillingBar />
+              {view === 'dialer' && <Dialer />}
+              {view === 'history' && <CallHistory />}
+            </div>
           </main>
         </div>
       </CallProvider>

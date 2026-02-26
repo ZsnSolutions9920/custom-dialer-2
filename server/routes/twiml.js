@@ -1,6 +1,7 @@
 const express = require('express');
 const twilio = require('twilio');
 const { getIO } = require('../io');
+const db = require('../db');
 
 const router = express.Router();
 
@@ -24,21 +25,56 @@ router.post('/voice', (req, res) => {
 });
 
 // Call status callback — Twilio POSTs here when call status changes
-router.post('/status', (req, res) => {
-  const { CallSid, CallStatus, CallDuration, From } = req.body;
-  console.log(`Call ${CallSid}: ${CallStatus} (${CallDuration || 0}s)`);
+const TERMINAL_STATUSES = ['completed', 'no-answer', 'busy', 'canceled', 'failed'];
 
-  // Emit call status to connected clients
-  const io = getIO();
-  if (io) {
-    const match = From && From.match(/agent_(\d+)/);
-    if (match) {
-      io.to(`agent:${match[1]}`).emit('call:status', {
-        callSid: CallSid,
-        status: CallStatus,
-        duration: CallDuration || 0,
-      });
+router.post('/status', async (req, res) => {
+  const { CallSid, CallStatus, CallDuration, From } = req.body;
+  const duration = parseInt(CallDuration, 10) || 0;
+  console.log(`Call ${CallSid}: ${CallStatus} (${duration}s)`);
+
+  try {
+    // Save Twilio's authoritative duration + status to DB
+    await db.query(
+      `UPDATE kc_call_logs
+       SET status = $1,
+           duration = $2,
+           ended_at = CASE WHEN $1 = ANY($3::text[]) THEN NOW() ELSE ended_at END
+       WHERE call_sid = $4`,
+      [CallStatus, duration, TERMINAL_STATUSES, CallSid]
+    );
+
+    const io = getIO();
+    if (io) {
+      // Emit call:status to the specific agent's room
+      const match = From && From.match(/agent_(\d+)/);
+      if (match) {
+        io.to(`agent:${match[1]}`).emit('call:status', {
+          callSid: CallSid,
+          status: CallStatus,
+          duration,
+        });
+      }
+
+      // On terminal status, broadcast updated billing to all clients
+      if (TERMINAL_STATUSES.includes(CallStatus)) {
+        const rate = parseFloat(process.env.RATE_PER_MINUTE) || 0;
+        const billing = await db.query(
+          `SELECT
+             COALESCE(SUM(duration), 0) AS total_seconds,
+             ROUND(COALESCE(SUM(duration), 0) / 60.0, 2) AS total_minutes,
+             ROUND(COALESCE(SUM(duration), 0) / 60.0 * $1, 2) AS total_cost
+           FROM kc_call_logs
+           WHERE started_at >= date_trunc('month', NOW())
+             AND status = 'completed'`,
+          [rate]
+        );
+        const data = billing.rows[0] || { total_seconds: 0, total_minutes: 0, total_cost: 0 };
+        data.rate_per_minute = rate;
+        io.emit('billing:updated', data);
+      }
     }
+  } catch (err) {
+    console.error('Status callback DB error:', err);
   }
 
   res.sendStatus(200);
