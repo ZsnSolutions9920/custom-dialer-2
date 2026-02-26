@@ -10,7 +10,7 @@ export default function CallHistory() {
   const fetchHistory = useCallback(() => {
     api.getCallHistory()
       .then(setCalls)
-      .catch(() => {})
+      .catch((err) => console.error('Failed to fetch call history:', err))
       .finally(() => setLoading(false));
   }, []);
 

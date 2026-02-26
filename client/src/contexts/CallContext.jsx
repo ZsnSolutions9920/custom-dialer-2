@@ -125,7 +125,7 @@ export function CallProvider({ children }) {
       callSid: incomingCall.parameters.CallSid,
       phoneNumber,
       direction: 'inbound',
-    }).catch(() => {});
+    }).catch((err) => console.error('Failed to log inbound call:', err));
 
     incomingCall.on('disconnect', () => {
       setCallState('closed');
@@ -214,7 +214,7 @@ export function CallProvider({ children }) {
         ensureLogged();
         api.updateCall(call.parameters.CallSid, {
           status: 'failed',
-        }).catch(() => {});
+        }).catch((err) => console.error('Failed to update failed call:', err));
         setCallState('idle');
         stopTimer();
         setCallDuration(0);

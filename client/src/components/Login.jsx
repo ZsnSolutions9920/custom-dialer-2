@@ -25,10 +25,7 @@ export default function Login({ theme, toggleTheme }) {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">
-          <div className="logo-icon">
-            <img src="/logo.png" alt="Logo" width="40" height="40" style={{ borderRadius: 8 }} />
-          </div>
-          <h1>Dialer</h1>
+          <h1>QUICKRING</h1>
           <p className="login-subtitle">Agent Dialer</p>
         </div>
 
@@ -36,13 +33,13 @@ export default function Login({ theme, toggleTheme }) {
           {error && <div className="login-error">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">Username</label>
             <input
-              id="email"
-              type="email"
+              id="username"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="agent@krispcall.com"
+              placeholder="agent1"
               required
               autoFocus
             />

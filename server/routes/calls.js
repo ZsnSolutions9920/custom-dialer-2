@@ -43,10 +43,13 @@ router.patch('/:callSid', authenticate, async (req, res) => {
       [status, duration, req.params.callSid, req.agent.id]
     );
 
-    const callLog = result.rows[0] || {};
+    const callLog = result.rows[0];
+    if (!callLog) {
+      return res.status(404).json({ error: 'Call log not found' });
+    }
 
     const io = getIO();
-    if (io && callLog.id) {
+    if (io) {
       io.to(`agent:${req.agent.id}`).emit('call:updated', callLog);
     }
 

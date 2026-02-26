@@ -11,7 +11,7 @@ export default function Sidebar({ view, onViewChange, theme, toggleTheme }) {
     <aside className="sidebar">
       <div className="sidebar-top">
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="Logo" width="30" height="30" style={{ borderRadius: 6 }} />
+          QUICKRING
         </div>
 
         <nav className="sidebar-nav">
