@@ -73,8 +73,9 @@ router.post('/status', async (req, res) => {
         });
       }
 
-      // On terminal status, broadcast updated billing to all clients
-      if (TERMINAL_STATUSES.includes(CallStatus)) {
+      // On terminal status, send updated billing to the specific agent
+      if (TERMINAL_STATUSES.includes(CallStatus) && match) {
+        const agentId = match[1];
         const rate = parseFloat(process.env.RATE_PER_MINUTE) || 0;
         const billing = await db.query(
           `SELECT
@@ -82,13 +83,14 @@ router.post('/status', async (req, res) => {
              ROUND(COALESCE(SUM(duration), 0) / 60.0, 2) AS total_minutes,
              ROUND(COALESCE(SUM(duration), 0) / 60.0 * $1, 2) AS total_cost
            FROM kc_call_logs
-           WHERE started_at >= date_trunc('month', NOW())
+           WHERE agent_id = $2
+             AND started_at >= date_trunc('month', NOW())
              AND status = 'completed'`,
-          [rate]
+          [rate, agentId]
         );
         const data = billing.rows[0] || { total_seconds: 0, total_minutes: 0, total_cost: 0 };
         data.rate_per_minute = rate;
-        io.emit('billing:updated', data);
+        io.to(`agent:${agentId}`).emit('billing:updated', data);
       }
     }
   } catch (err) {

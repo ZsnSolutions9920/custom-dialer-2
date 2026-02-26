@@ -57,7 +57,7 @@ router.patch('/:callSid', authenticate, async (req, res) => {
   }
 });
 
-// Get monthly billing totals (all agents)
+// Get monthly billing totals for the logged-in agent
 router.get('/billing', authenticate, async (req, res) => {
   try {
     const rate = parseFloat(process.env.RATE_PER_MINUTE) || 0;
@@ -67,9 +67,10 @@ router.get('/billing', authenticate, async (req, res) => {
          ROUND(COALESCE(SUM(duration), 0) / 60.0, 2) AS total_minutes,
          ROUND(COALESCE(SUM(duration), 0) / 60.0 * $1, 2) AS total_cost
        FROM kc_call_logs
-       WHERE started_at >= date_trunc('month', NOW())
+       WHERE agent_id = $2
+         AND started_at >= date_trunc('month', NOW())
          AND status = 'completed'`,
-      [rate]
+      [rate, req.agent.id]
     );
     const data = result.rows[0] || { total_seconds: 0, total_minutes: 0, total_cost: 0 };
     data.rate_per_minute = rate;
