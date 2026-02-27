@@ -11,17 +11,21 @@ const childToParentMap = new Map();
 const TERMINAL_STATUSES = ['completed', 'no-answer', 'busy', 'canceled', 'failed'];
 const MACHINE_TYPES = ['machine_start', 'machine_end_beep', 'machine_end_silence', 'machine_end_other', 'fax'];
 
-// This endpoint is called by Twilio when an outgoing call is initiated from the browser
+// This endpoint is called by Twilio for both outgoing (browser→phone) and
+// incoming (phone→browser) calls via the TwiML App voice URL.
 router.post('/voice', async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const to = req.body.To;
-  const from = req.body.From; // e.g. "client:agent_1"
+  const from = req.body.From;
   const baseUrl = process.env.SERVER_BASE_URL;
+  const isOutbound = from && from.startsWith('client:');
 
-  if (to) {
-    // Look up the agent's assigned phone number
+  console.log('TwiML /voice request:', { to, from, direction: isOutbound ? 'outbound' : 'inbound', body: req.body });
+
+  if (isOutbound && to) {
+    // --- OUTBOUND: agent in browser dialing a phone number ---
     let callerId = process.env.TWILIO_PHONE_NUMBER; // fallback
-    const match = from && from.match(/agent_(\d+)/);
+    const match = from.match(/agent_(\d+)/);
     if (match) {
       try {
         const result = await db.query(
@@ -48,12 +52,50 @@ router.post('/voice', async (req, res) => {
       amdStatusCallback: `${baseUrl}/api/twiml/amd`,
       amdStatusCallbackMethod: 'POST',
     }, to);
+  } else if (!isOutbound && to) {
+    // --- INBOUND: external caller dialing a Twilio number ---
+    // Find the agent who owns the called number
+    try {
+      const result = await db.query(
+        'SELECT id, name FROM kc_agents WHERE phone_number = $1 AND is_active = true',
+        [to]
+      );
+
+      if (result.rows.length > 0) {
+        // Route to the specific agent who owns this number
+        const dial = twiml.dial({
+          callerId: from,
+          answerOnBridge: true,
+        });
+        dial.client(`agent_${result.rows[0].id}`);
+        console.log(`Inbound call from ${from} → routing to agent_${result.rows[0].id} (${result.rows[0].name})`);
+      } else {
+        // No agent owns this number — ring all active agents
+        const allAgents = await db.query(
+          'SELECT id, name FROM kc_agents WHERE is_active = true'
+        );
+        if (allAgents.rows.length > 0) {
+          const dial = twiml.dial({
+            callerId: from,
+            answerOnBridge: true,
+          });
+          for (const agent of allAgents.rows) {
+            dial.client(`agent_${agent.id}`);
+          }
+          console.log(`Inbound call from ${from} → ringing all ${allAgents.rows.length} active agents`);
+        } else {
+          twiml.say('Sorry, no agents are available to take your call. Please try again later.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to route inbound call:', err);
+      twiml.say('An error occurred. Please try again later.');
+    }
   } else {
     twiml.say('No destination number provided.');
   }
 
   const twimlXml = twiml.toString();
-  console.log('TwiML /voice request:', { to, from, body: req.body });
   console.log('TwiML response:', twimlXml);
   res.type('text/xml');
   res.send(twimlXml);
