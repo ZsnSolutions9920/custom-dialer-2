@@ -1,4 +1,5 @@
 const express = require('express');
+const https = require('https');
 const authenticate = require('../middleware/auth');
 const db = require('../db');
 const { getIO } = require('../io');
@@ -81,6 +82,72 @@ router.get('/billing', authenticate, async (req, res) => {
   } catch (err) {
     console.error('Billing query error:', err);
     res.status(500).json({ error: 'Failed to fetch billing' });
+  }
+});
+
+// Get inbound call history for the agent
+router.get('/inbound-history', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT * FROM kc_call_logs
+       WHERE agent_id = $1 AND direction = 'inbound'
+       ORDER BY started_at DESC
+       LIMIT 50`,
+      [req.agent.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetch inbound history error:', err);
+    res.status(500).json({ error: 'Failed to fetch inbound history' });
+  }
+});
+
+// Download call recording as MP3 (proxied through server with Twilio auth)
+router.get('/:callSid/recording', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT recording_url FROM kc_call_logs WHERE call_sid = $1 AND agent_id = $2',
+      [req.params.callSid, req.agent.id]
+    );
+
+    if (!result.rows[0] || !result.rows[0].recording_url) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
+
+    const recordingUrl = result.rows[0].recording_url + '.mp3';
+    const authString = Buffer.from(
+      `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+    ).toString('base64');
+
+    // Fetch from Twilio and stream to client
+    https.get(recordingUrl, { headers: { Authorization: `Basic ${authString}` } }, (twilioRes) => {
+      // Follow redirect if Twilio returns one
+      if (twilioRes.statusCode >= 300 && twilioRes.statusCode < 400 && twilioRes.headers.location) {
+        https.get(twilioRes.headers.location, (redirectRes) => {
+          res.set({
+            'Content-Type': 'audio/mpeg',
+            'Content-Disposition': `attachment; filename="${req.params.callSid}.mp3"`,
+          });
+          redirectRes.pipe(res);
+        }).on('error', (err) => {
+          console.error('Recording redirect fetch error:', err);
+          res.status(502).json({ error: 'Failed to fetch recording' });
+        });
+        return;
+      }
+
+      res.set({
+        'Content-Type': 'audio/mpeg',
+        'Content-Disposition': `attachment; filename="${req.params.callSid}.mp3"`,
+      });
+      twilioRes.pipe(res);
+    }).on('error', (err) => {
+      console.error('Recording fetch error:', err);
+      res.status(502).json({ error: 'Failed to fetch recording' });
+    });
+  } catch (err) {
+    console.error('Recording download error:', err);
+    res.status(500).json({ error: 'Failed to download recording' });
   }
 });
 

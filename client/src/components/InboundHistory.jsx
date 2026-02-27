@@ -3,15 +3,15 @@ import { api } from '../api';
 import { useSocket } from '../contexts/SocketContext';
 import { parsePhone } from '../utils/phoneFormat';
 
-export default function CallHistory() {
+export default function InboundHistory() {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const { socket } = useSocket();
 
   const fetchHistory = useCallback(() => {
-    api.getCallHistory()
+    api.getInboundHistory()
       .then(setCalls)
-      .catch((err) => console.error('Failed to fetch call history:', err))
+      .catch((err) => console.error('Failed to fetch inbound history:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -19,7 +19,6 @@ export default function CallHistory() {
     fetchHistory();
   }, [fetchHistory]);
 
-  // Auto-refresh when calls are logged or updated via socket
   useEffect(() => {
     if (!socket) return;
     socket.on('call:logged', fetchHistory);
@@ -60,7 +59,7 @@ export default function CallHistory() {
   if (loading) {
     return (
       <div className="history-container">
-        <div className="history-loading">Loading call history...</div>
+        <div className="history-loading">Loading inbound call history...</div>
       </div>
     );
   }
@@ -68,36 +67,29 @@ export default function CallHistory() {
   return (
     <div className="history-container">
       <div className="history-header">
-        <h2>Call History</h2>
+        <h2>Inbound Calls</h2>
         <span className="history-count">{calls.length} calls</span>
       </div>
 
       {calls.length === 0 ? (
         <div className="history-empty">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
+            <polyline points="17 7 7 17" />
+            <polyline points="17 17 7 17 7 7" />
           </svg>
-          <p>No calls yet. Start dialing!</p>
+          <p>No inbound calls yet.</p>
         </div>
       ) : (
         <div className="history-list">
           {calls.map((call) => {
             const phone = parsePhone(call.phone_number);
-            const isInbound = call.direction === 'inbound';
             return (
               <div key={call.id} className="history-item">
                 <div className="history-item-icon">
-                  {isInbound ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="17 7 7 17" />
-                      <polyline points="17 17 7 17 7 7" />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="7 17 17 7" />
-                      <polyline points="7 7 17 7 17 17" />
-                    </svg>
-                  )}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="17 7 7 17" />
+                    <polyline points="17 17 7 17 7 7" />
+                  </svg>
                 </div>
                 <div className="history-item-info">
                   <span className="history-number">{phone.flag} {phone.formatted}</span>

@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Sidebar from './components/Sidebar';
 import Dialer from './components/Dialer';
 import CallHistory from './components/CallHistory';
+import InboundHistory from './components/InboundHistory';
 import BillingBar from './components/BillingBar';
 import IncomingCallModal from './components/IncomingCallModal';
 
@@ -43,6 +44,7 @@ export default function App() {
               <BillingBar />
               {view === 'dialer' && <Dialer />}
               {view === 'history' && <CallHistory />}
+              {view === 'inbound' && <InboundHistory />}
             </div>
           </main>
         </div>

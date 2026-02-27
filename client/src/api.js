@@ -50,5 +50,9 @@ export const api = {
 
   getCallHistory: () => request('/calls/history'),
 
+  getInboundHistory: () => request('/calls/inbound-history'),
+
   getBilling: () => request('/calls/billing'),
+
+  getRecordingUrl: (callSid) => `${API_BASE}/calls/${callSid}/recording?token=${getToken()}`,
 };

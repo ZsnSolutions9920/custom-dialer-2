@@ -35,6 +35,17 @@ export default function Sidebar({ view, onViewChange, theme, toggleTheme }) {
             </svg>
             <span>History</span>
           </button>
+
+          <button
+            className={`nav-item ${view === 'inbound' ? 'active' : ''}`}
+            onClick={() => onViewChange('inbound')}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 7 7 17" />
+              <polyline points="17 17 7 17 7 7" />
+            </svg>
+            <span>Inbound</span>
+          </button>
         </nav>
       </div>
 

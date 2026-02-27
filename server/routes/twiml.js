@@ -43,6 +43,9 @@ router.post('/voice', async (req, res) => {
     const dial = twiml.dial({
       callerId,
       answerOnBridge: true,
+      record: 'record-from-answer-dual',
+      recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
+      recordingStatusCallbackMethod: 'POST',
     });
     dial.number({
       statusCallback: `${baseUrl}/api/twiml/child-status`,
@@ -66,6 +69,9 @@ router.post('/voice', async (req, res) => {
         const dial = twiml.dial({
           callerId: from,
           answerOnBridge: true,
+          record: 'record-from-answer-dual',
+          recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
+          recordingStatusCallbackMethod: 'POST',
         });
         dial.client(`agent_${result.rows[0].id}`);
         console.log(`Inbound call from ${from} → routing to agent_${result.rows[0].id} (${result.rows[0].name})`);
@@ -78,6 +84,9 @@ router.post('/voice', async (req, res) => {
           const dial = twiml.dial({
             callerId: from,
             answerOnBridge: true,
+            record: 'record-from-answer-dual',
+            recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
+            recordingStatusCallbackMethod: 'POST',
           });
           for (const agent of allAgents.rows) {
             dial.client(`agent_${agent.id}`);
@@ -234,6 +243,33 @@ router.post('/status', async (req, res) => {
     }
   } catch (err) {
     console.error('Status callback DB error:', err);
+  }
+
+  res.sendStatus(200);
+});
+
+// Recording status callback — Twilio POSTs here when a recording is ready
+router.post('/recording-status', async (req, res) => {
+  const { RecordingUrl, RecordingSid, CallSid } = req.body;
+  console.log(`Recording ready for call ${CallSid}: ${RecordingSid} → ${RecordingUrl}`);
+
+  try {
+    const result = await db.query(
+      'UPDATE kc_call_logs SET recording_url = $1 WHERE call_sid = $2 RETURNING agent_id',
+      [RecordingUrl, CallSid]
+    );
+
+    if (result.rows[0]) {
+      const io = getIO();
+      if (io) {
+        io.to(`agent:${result.rows[0].agent_id}`).emit('call:updated', {
+          call_sid: CallSid,
+          recording_url: RecordingUrl,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Recording status callback error:', err);
   }
 
   res.sendStatus(200);
