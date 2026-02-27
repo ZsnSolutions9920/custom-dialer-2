@@ -51,6 +51,7 @@ export default function CallHistory() {
       busy: 'badge-warn',
       failed: 'badge-error',
       canceled: 'badge-error',
+      voicemail: 'badge-warn',
     };
     return colors[status] || 'badge-info';
   };

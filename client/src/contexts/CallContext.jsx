@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api';
+import { useSocket } from './SocketContext';
 
 const CallContext = createContext(null);
 
 export function CallProvider({ children }) {
+  const { socket } = useSocket();
   const deviceRef = useRef(null);
   const callRef = useRef(null);
   const initStartedRef = useRef(false);
@@ -103,6 +105,41 @@ export function CallProvider({ children }) {
     }
   }, [stopTimer]);
 
+  // Listen for server-side call events (accurate answer detection & voicemail)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAnswered = ({ callSid }) => {
+      // Only start timer if this is our active outbound call still in ringing state
+      if (callRef.current && callRef.current.parameters.CallSid === callSid) {
+        setCallState('open');
+        startTimer();
+      }
+    };
+
+    const handleVoicemail = ({ callSid }) => {
+      if (callRef.current && callRef.current.parameters.CallSid === callSid) {
+        setCallState('voicemail');
+        stopTimer();
+        callRef.current.disconnect();
+        callRef.current = null;
+        setTimeout(() => {
+          setCallState('idle');
+          setCallDuration(0);
+          setIsMuted(false);
+        }, 2500);
+      }
+    };
+
+    socket.on('call:answered', handleAnswered);
+    socket.on('call:voicemail', handleVoicemail);
+
+    return () => {
+      socket.off('call:answered', handleAnswered);
+      socket.off('call:voicemail', handleVoicemail);
+    };
+  }, [socket, startTimer, stopTimer]);
+
   // One-time click listener to trigger device init (browser gesture requirement)
   useEffect(() => {
     const handleClick = () => {
@@ -177,17 +214,19 @@ export function CallProvider({ children }) {
       });
 
       call.on('accept', () => {
-        setCallState('open');
-        startTimer();
+        // Don't start timer here — wait for call:answered from server
+        // which fires only when the remote party actually picks up.
+        // Keep state as 'ringing' until then.
         ensureLogged();
       });
 
       call.on('disconnect', () => {
         setCallState('closed');
         stopTimer();
+        // Don't send client-side duration — the server's child-status
+        // callback updates with Twilio's authoritative duration.
         api.updateCall(call.parameters.CallSid, {
           status: 'completed',
-          duration: durationRef.current,
         }).catch((err) => console.error('Failed to update call:', err));
         setTimeout(() => {
           setCallState('idle');

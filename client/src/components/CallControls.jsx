@@ -1,5 +1,5 @@
 export default function CallControls({ callState, isMuted, onCall, onHangUp, onToggleMute, disabled }) {
-  const isInCall = callState !== 'idle' && callState !== 'closed';
+  const isInCall = callState !== 'idle' && callState !== 'closed' && callState !== 'voicemail';
 
   return (
     <div className="call-controls">

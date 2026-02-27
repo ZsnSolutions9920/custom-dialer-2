@@ -8,7 +8,7 @@ export default function Dialer() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const { callState, callDuration, isMuted, makeCall, hangUp, toggleMute, sendDtmf, deviceReady } = useCall();
 
-  const isInCall = callState !== 'idle' && callState !== 'closed';
+  const isInCall = callState !== 'idle' && callState !== 'closed' && callState !== 'voicemail';
 
   const handleDial = (digit) => {
     if (isInCall) {

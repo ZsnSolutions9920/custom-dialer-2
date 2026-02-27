@@ -5,11 +5,18 @@ const db = require('../db');
 
 const router = express.Router();
 
+// In-memory mapping: child CallSid → parent CallSid
+const childToParentMap = new Map();
+
+const TERMINAL_STATUSES = ['completed', 'no-answer', 'busy', 'canceled', 'failed'];
+const MACHINE_TYPES = ['machine_start', 'machine_end_beep', 'machine_end_silence', 'machine_end_other', 'fax'];
+
 // This endpoint is called by Twilio when an outgoing call is initiated from the browser
 router.post('/voice', async (req, res) => {
   const twiml = new twilio.twiml.VoiceResponse();
   const to = req.body.To;
   const from = req.body.From; // e.g. "client:agent_1"
+  const baseUrl = process.env.SERVER_BASE_URL;
 
   if (to) {
     // Look up the agent's assigned phone number
@@ -33,32 +40,122 @@ router.post('/voice', async (req, res) => {
       callerId,
       answerOnBridge: true,
     });
-    dial.number(to);
+    dial.number({
+      statusCallback: `${baseUrl}/api/twiml/child-status`,
+      statusCallbackEvent: 'initiated ringing answered completed',
+      statusCallbackMethod: 'POST',
+      machineDetection: 'Enable',
+      amdStatusCallback: `${baseUrl}/api/twiml/amd`,
+      amdStatusCallbackMethod: 'POST',
+    }, to);
   } else {
     twiml.say('No destination number provided.');
   }
 
+  const twimlXml = twiml.toString();
+  console.log('TwiML /voice request:', { to, from, body: req.body });
+  console.log('TwiML response:', twimlXml);
   res.type('text/xml');
-  res.send(twiml.toString());
+  res.send(twimlXml);
+});
+
+// Child call (PSTN leg) status callback
+router.post('/child-status', async (req, res) => {
+  const { CallSid, ParentCallSid, CallStatus, CallDuration } = req.body;
+  console.log(`Child call ${CallSid} (parent: ${ParentCallSid}): ${CallStatus}`);
+
+  try {
+    // Store child→parent mapping
+    if (ParentCallSid) {
+      childToParentMap.set(CallSid, ParentCallSid);
+    }
+
+    const io = getIO();
+
+    if (CallStatus === 'in-progress' && io) {
+      // Child call answered by a human — notify agent to start timer
+      const result = await db.query(
+        'SELECT agent_id FROM kc_call_logs WHERE call_sid = $1',
+        [ParentCallSid]
+      );
+      if (result.rows[0]) {
+        io.to(`agent:${result.rows[0].agent_id}`).emit('call:answered', {
+          callSid: ParentCallSid,
+        });
+      }
+    }
+
+    // On terminal status, use child call's duration (accurate talk time only)
+    if (TERMINAL_STATUSES.includes(CallStatus)) {
+      const duration = parseInt(CallDuration, 10) || 0;
+      await db.query(
+        'UPDATE kc_call_logs SET duration = $1 WHERE call_sid = $2',
+        [duration, ParentCallSid]
+      );
+      // Clean up mapping
+      childToParentMap.delete(CallSid);
+    }
+  } catch (err) {
+    console.error('Child status callback error:', err);
+  }
+
+  res.sendStatus(200);
+});
+
+// Answering Machine Detection callback
+router.post('/amd', async (req, res) => {
+  const { CallSid, AnsweredBy } = req.body;
+  const parentCallSid = childToParentMap.get(CallSid);
+  console.log(`AMD result for ${CallSid} (parent: ${parentCallSid}): ${AnsweredBy}`);
+
+  if (MACHINE_TYPES.includes(AnsweredBy) && parentCallSid) {
+    try {
+      // Hang up the child call (voicemail)
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await client.calls(CallSid).update({ status: 'completed' });
+
+      // Mark as voicemail with 0 duration so it's not billed
+      await db.query(
+        'UPDATE kc_call_logs SET status = $1, duration = 0 WHERE call_sid = $2',
+        ['voicemail', parentCallSid]
+      );
+
+      // Notify agent
+      const result = await db.query(
+        'SELECT agent_id FROM kc_call_logs WHERE call_sid = $1',
+        [parentCallSid]
+      );
+      const io = getIO();
+      if (result.rows[0] && io) {
+        io.to(`agent:${result.rows[0].agent_id}`).emit('call:voicemail', {
+          callSid: parentCallSid,
+        });
+      }
+
+      childToParentMap.delete(CallSid);
+    } catch (err) {
+      console.error('AMD handling error:', err);
+    }
+  }
+
+  res.sendStatus(200);
 });
 
 // Call status callback — Twilio POSTs here when call status changes
-const TERMINAL_STATUSES = ['completed', 'no-answer', 'busy', 'canceled', 'failed'];
-
 router.post('/status', async (req, res) => {
   const { CallSid, CallStatus, CallDuration, From } = req.body;
   const duration = parseInt(CallDuration, 10) || 0;
   console.log(`Call ${CallSid}: ${CallStatus} (${duration}s)`);
 
   try {
-    // Save Twilio's authoritative duration + status to DB
+    // Update status and ended_at, but do NOT overwrite duration here —
+    // the child-status callback sets the accurate talk-time duration.
     await db.query(
       `UPDATE kc_call_logs
-       SET status = $1,
-           duration = $2,
-           ended_at = CASE WHEN $1 = ANY($3::text[]) THEN NOW() ELSE ended_at END
-       WHERE call_sid = $4`,
-      [CallStatus, duration, TERMINAL_STATUSES, CallSid]
+       SET status = CASE WHEN status = 'voicemail' THEN status ELSE $1 END,
+           ended_at = CASE WHEN $1 = ANY($2::text[]) THEN NOW() ELSE ended_at END
+       WHERE call_sid = $3`,
+      [CallStatus, TERMINAL_STATUSES, CallSid]
     );
 
     const io = getIO();

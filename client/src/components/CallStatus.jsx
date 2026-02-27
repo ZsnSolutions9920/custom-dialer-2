@@ -11,6 +11,7 @@ export default function CallStatus({ callState, callDuration, phoneNumber }) {
     ringing: 'Ringing...',
     open: formatDuration(callDuration),
     closed: 'Call Ended',
+    voicemail: 'Voicemail Detected',
   };
 
   if (callState === 'idle') return null;
