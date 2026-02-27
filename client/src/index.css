@@ -1105,6 +1105,20 @@ html, body, #root {
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.incoming-flag {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.incoming-country {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 .incoming-actions {

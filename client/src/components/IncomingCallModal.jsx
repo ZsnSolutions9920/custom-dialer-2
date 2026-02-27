@@ -1,11 +1,13 @@
 import { useCall } from '../contexts/CallContext';
+import { parsePhone } from '../utils/phoneFormat';
 
 export default function IncomingCallModal() {
   const { incomingCall, acceptIncoming, rejectIncoming } = useCall();
 
   if (!incomingCall) return null;
 
-  const caller = incomingCall.parameters.From || 'Unknown';
+  const raw = incomingCall.parameters.From || 'Unknown';
+  const { flag, country, formatted } = parsePhone(raw);
 
   return (
     <div className="incoming-overlay">
@@ -23,7 +25,11 @@ export default function IncomingCallModal() {
 
         <div className="incoming-info">
           <span className="incoming-label">Incoming Call</span>
-          <span className="incoming-caller">{caller}</span>
+          <span className="incoming-caller">
+            {flag && <span className="incoming-flag">{flag}</span>}
+            {formatted}
+          </span>
+          {country && <span className="incoming-country">{country}</span>}
         </div>
 
         <div className="incoming-actions">
