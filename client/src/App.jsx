@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import Dialer from './components/Dialer';
 import CallHistory from './components/CallHistory';
 import BillingBar from './components/BillingBar';
+import IncomingCallModal from './components/IncomingCallModal';
 
 export default function App() {
   const { isAuthenticated } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
     <SocketProvider>
       <CallProvider>
         <div className="app-layout">
+          <IncomingCallModal />
           <Sidebar
             view={view}
             onViewChange={setView}
