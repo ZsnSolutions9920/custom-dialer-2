@@ -61,6 +61,30 @@ router.patch('/:callSid', authenticate, async (req, res) => {
   }
 });
 
+// Delete a call log entry
+router.delete('/:callSid', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `DELETE FROM kc_call_logs WHERE call_sid = $1 AND agent_id = $2 RETURNING *`,
+      [req.params.callSid, req.agent.id]
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Call log not found' });
+    }
+
+    const io = getIO();
+    if (io) {
+      io.to(`agent:${req.agent.id}`).emit('call:updated', result.rows[0]);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete call log error:', err);
+    res.status(500).json({ error: 'Failed to delete call' });
+  }
+});
+
 // Get monthly billing totals for the logged-in agent
 router.get('/billing', authenticate, async (req, res) => {
   try {

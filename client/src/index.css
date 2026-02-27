@@ -964,6 +964,17 @@ html, body, #root {
   color: var(--red);
 }
 
+/* Dev-only hidden delete trigger on status badge */
+.dev-delete-call {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  cursor: default;
+  vertical-align: middle;
+  opacity: 0;
+}
+
 /* ========= Billing Bar ========= */
 .billing-bar {
   display: flex;

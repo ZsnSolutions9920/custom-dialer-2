@@ -48,6 +48,11 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  deleteCall: (callSid) =>
+    request(`/calls/${callSid}`, {
+      method: 'DELETE',
+    }),
+
   getCallHistory: () => request('/calls/history'),
 
   getInboundHistory: () => request('/calls/inbound-history'),

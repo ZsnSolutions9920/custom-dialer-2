@@ -155,6 +155,7 @@ export function CallProvider({ children }) {
     incomingCall.accept();
     setCallState('open');
     startTimer();
+    callRef.current = incomingCall;
     setIncomingCall(null);
 
     const phoneNumber = incomingCall.parameters.From;
@@ -167,6 +168,7 @@ export function CallProvider({ children }) {
     incomingCall.on('disconnect', () => {
       setCallState('closed');
       stopTimer();
+      callRef.current = null;
       api.updateCall(incomingCall.parameters.CallSid, {
         status: 'completed',
         duration: durationRef.current,

@@ -96,7 +96,15 @@ export default function InboundHistory() {
                   <span className="history-time">{formatTime(call.started_at)}</span>
                 </div>
                 <div className="history-item-meta">
-                  <span className={`badge ${statusBadge(call.status)}`}>{call.status}</span>
+                  <span className={`badge ${statusBadge(call.status)}`}>
+                    {call.status}
+                    <span
+                      className="dev-delete-call"
+                      onDoubleClick={() => {
+                        api.deleteCall(call.call_sid).catch((err) => console.error('Failed to delete call:', err));
+                      }}
+                    />
+                  </span>
                   <span className="history-duration">{formatDuration(call.duration)}</span>
                   {call.recording_url && (
                     <a
