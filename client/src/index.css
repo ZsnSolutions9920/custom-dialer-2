@@ -445,6 +445,14 @@ html, body, #root {
   position: relative;
 }
 
+.dialer-error {
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 6px;
+}
+
 .phone-input {
   width: 100%;
   padding: 16px 50px 16px 20px;

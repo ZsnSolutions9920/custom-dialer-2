@@ -58,6 +58,18 @@ router.post('/voice', async (req, res) => {
 
   if (isOutbound && to) {
     // --- OUTBOUND: agent in browser dialing a phone number ---
+    // Only allow US numbers (+1)
+    const digits = to.replace(/[\s\-\(\)\.]/g, '');
+    const isUS = (digits.startsWith('+1') && digits.length === 12)
+      || (digits.startsWith('1') && digits.length === 11)
+      || (digits.length === 10 && !digits.startsWith('+'));
+    if (!isUS) {
+      twiml.say('Only calls to US numbers are allowed.');
+      twiml.hangup();
+      res.type('text/xml');
+      return res.send(twiml.toString());
+    }
+
     let callerId = process.env.TWILIO_PHONE_NUMBER; // fallback
     const match = from.match(/agent_(\d+)/);
     if (match) {

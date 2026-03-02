@@ -4,8 +4,17 @@ import DialPad from './DialPad';
 import CallControls from './CallControls';
 import CallStatus from './CallStatus';
 
+function isUSNumber(number) {
+  const digits = number.replace(/[\s\-\(\)\.]/g, '');
+  if (digits.startsWith('+1') && digits.length === 12) return true;
+  if (digits.startsWith('1') && digits.length === 11) return true;
+  if (digits.length === 10 && !digits.startsWith('+')) return true;
+  return false;
+}
+
 export default function Dialer() {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [error, setError] = useState('');
   const { callState, callDuration, isMuted, makeCall, hangUp, toggleMute, sendDtmf, deviceReady } = useCall();
 
   const isInCall = callState !== 'idle' && callState !== 'closed' && callState !== 'voicemail';
@@ -14,18 +23,25 @@ export default function Dialer() {
     if (isInCall) {
       sendDtmf(digit);
     } else {
+      setError('');
       setPhoneNumber((prev) => prev + digit);
     }
   };
 
   const handleBackspace = () => {
     if (!isInCall) {
+      setError('');
       setPhoneNumber((prev) => prev.slice(0, -1));
     }
   };
 
   const handleCall = () => {
     if (!phoneNumber.trim() || !deviceReady) return;
+    if (!isUSNumber(phoneNumber.trim())) {
+      setError('Only US numbers (+1) are allowed');
+      return;
+    }
+    setError('');
     makeCall(phoneNumber.trim());
   };
 
@@ -44,10 +60,11 @@ export default function Dialer() {
             className="phone-input"
             type="tel"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={(e) => { setError(''); setPhoneNumber(e.target.value); }}
             placeholder="+1 (555) 000-0000"
             disabled={isInCall}
           />
+          {error && <div className="dialer-error">{error}</div>}
           {phoneNumber && !isInCall && (
             <button className="btn-backspace" onClick={handleBackspace}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
