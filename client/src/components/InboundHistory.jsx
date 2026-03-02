@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api';
 import { useSocket } from '../contexts/SocketContext';
 import { parsePhone } from '../utils/phoneFormat';
@@ -12,10 +12,13 @@ export default function InboundHistory() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debounceRef = useRef(null);
   const { socket } = useSocket();
 
-  const fetchHistory = useCallback((p = page) => {
-    api.getInboundHistory(p, PAGE_SIZE)
+  const fetchHistory = useCallback((p = page, q = search) => {
+    api.getInboundHistory(p, PAGE_SIZE, q)
       .then((data) => {
         setCalls(data.calls);
         setTotal(data.total);
@@ -23,23 +26,39 @@ export default function InboundHistory() {
       })
       .catch((err) => console.error('Failed to fetch inbound history:', err))
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, search]);
 
   useEffect(() => {
     setLoading(true);
-    fetchHistory(page);
-  }, [page, fetchHistory]);
+    fetchHistory(page, search);
+  }, [page, search, fetchHistory]);
 
   useEffect(() => {
     if (!socket) return;
-    const refresh = () => fetchHistory(page);
+    const refresh = () => fetchHistory(page, search);
     socket.on('call:logged', refresh);
     socket.on('call:updated', refresh);
     return () => {
       socket.off('call:logged', refresh);
       socket.off('call:updated', refresh);
     };
-  }, [socket, fetchHistory, page]);
+  }, [socket, fetchHistory, page, search]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchInput(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      setSearch(val);
+    }, 400);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
+  };
 
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
@@ -83,13 +102,35 @@ export default function InboundHistory() {
         <span className="history-count">{total} calls</span>
       </div>
 
+      <div className="history-search">
+        <svg className="history-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          className="history-search-input"
+          placeholder="Search by phone number..."
+          value={searchInput}
+          onChange={handleSearchChange}
+        />
+        {searchInput && (
+          <button className="history-search-clear" onClick={clearSearch}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {calls.length === 0 ? (
         <div className="history-empty">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="17 7 7 17" />
             <polyline points="17 17 7 17 7 7" />
           </svg>
-          <p>No inbound calls yet.</p>
+          <p>{search ? 'No calls match your search.' : 'No inbound calls yet.'}</p>
         </div>
       ) : (
         <>

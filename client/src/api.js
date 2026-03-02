@@ -53,9 +53,11 @@ export const api = {
       method: 'DELETE',
     }),
 
-  getCallHistory: (page = 1, limit = 10) => request(`/calls/history?page=${page}&limit=${limit}`),
+  getCallHistory: (page = 1, limit = 10, search = '') =>
+    request(`/calls/history?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
 
-  getInboundHistory: (page = 1, limit = 10) => request(`/calls/inbound-history?page=${page}&limit=${limit}`),
+  getInboundHistory: (page = 1, limit = 10, search = '') =>
+    request(`/calls/inbound-history?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
 
   getBilling: () => request('/calls/billing'),
 
@@ -63,8 +65,8 @@ export const api = {
 
   getBillingSummary: () => request('/calls/billing/monthly-summary'),
 
-  getBillingMonth: (month, page = 1, limit = 10) =>
-    request(`/calls/billing/month/${month}?page=${page}&limit=${limit}`),
+  getBillingMonth: (month, page = 1, limit = 10, search = '') =>
+    request(`/calls/billing/month/${month}?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
 
   getBillingExportUrl: (month) =>
     `${API_BASE}/calls/billing/export/${month}?token=${getToken()}`,

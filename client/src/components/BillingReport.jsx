@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api';
 import { parsePhone } from '../utils/phoneFormat';
 
@@ -49,6 +49,9 @@ export default function BillingReport() {
   const [monthData, setMonthData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     api.getBillingSummary()
@@ -57,9 +60,9 @@ export default function BillingReport() {
       .finally(() => setLoading(false));
   }, []);
 
-  const fetchMonth = useCallback((month, p = 1) => {
+  const fetchMonth = useCallback((month, p = 1, q = '') => {
     setDetailLoading(true);
-    api.getBillingMonth(month, p, PAGE_SIZE)
+    api.getBillingMonth(month, p, PAGE_SIZE, q)
       .then(setMonthData)
       .catch((err) => console.error('Failed to fetch month detail:', err))
       .finally(() => setDetailLoading(false));
@@ -69,18 +72,38 @@ export default function BillingReport() {
     const key = toMonthKey(monthIso);
     setSelectedMonth(key);
     setPage(1);
-    fetchMonth(key, 1);
+    setSearch('');
+    setSearchInput('');
+    fetchMonth(key, 1, '');
   };
 
   const goBack = () => {
     setSelectedMonth(null);
     setMonthData(null);
     setPage(1);
+    setSearch('');
+    setSearchInput('');
+  };
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchInput(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(1);
+      setSearch(val);
+    }, 400);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
   };
 
   useEffect(() => {
-    if (selectedMonth) fetchMonth(selectedMonth, page);
-  }, [page, selectedMonth, fetchMonth]);
+    if (selectedMonth) fetchMonth(selectedMonth, page, search);
+  }, [page, search, selectedMonth, fetchMonth]);
 
   // Find the summary row for the selected month
   const selectedSummary = summary?.months?.find(
@@ -169,6 +192,29 @@ export default function BillingReport() {
           </div>
         </div>
 
+        {/* Search */}
+        <div className="history-search">
+          <svg className="history-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            className="history-search-input"
+            placeholder="Search by phone number..."
+            value={searchInput}
+            onChange={handleSearchChange}
+          />
+          {searchInput && (
+            <button className="history-search-clear" onClick={clearSearch}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+
         {/* Call list */}
         {detailLoading && !monthData ? (
           <div className="history-loading">Loading calls...</div>
@@ -254,7 +300,7 @@ export default function BillingReport() {
           </>
         ) : (
           <div className="history-empty">
-            <p>No completed calls this month.</p>
+            <p>{search ? 'No calls match your search.' : 'No completed calls this month.'}</p>
           </div>
         )}
       </div>

@@ -850,6 +850,61 @@ html, body, #root {
   font-weight: 500;
 }
 
+.history-search {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.history-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.history-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 36px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.history-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.history-search-input:focus {
+  border-color: var(--kc-purple);
+}
+
+.history-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.history-search-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 .history-loading,
 .history-empty {
   text-align: center;

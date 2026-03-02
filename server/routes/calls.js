@@ -200,22 +200,29 @@ router.get('/billing/month/:month', authenticate, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
+    const search = (req.query.search || '').replace(/[^\d+]/g, '');
+
+    const searchFilter = search ? ` AND phone_number LIKE $4` : '';
+    const countParams = search ? [req.agent.id, startDate, nextMonth, `%${search}%`] : [req.agent.id, startDate, nextMonth];
+    const dataParams = search
+      ? [req.agent.id, startDate, nextMonth, `%${search}%`, limit, offset]
+      : [req.agent.id, startDate, nextMonth, limit, offset];
 
     const countResult = await db.query(
       `SELECT COUNT(*) FROM kc_call_logs
        WHERE agent_id = $1 AND status = 'completed'
-         AND started_at >= $2 AND started_at < $3`,
-      [req.agent.id, startDate, nextMonth]
+         AND started_at >= $2 AND started_at < $3${searchFilter}`,
+      countParams
     );
     const total = parseInt(countResult.rows[0].count);
 
     const result = await db.query(
       `SELECT * FROM kc_call_logs
        WHERE agent_id = $1 AND status = 'completed'
-         AND started_at >= $2 AND started_at < $3
+         AND started_at >= $2 AND started_at < $3${searchFilter}
        ORDER BY started_at DESC
-       LIMIT $4 OFFSET $5`,
-      [req.agent.id, startDate, nextMonth, limit, offset]
+       LIMIT $${search ? 5 : 4} OFFSET $${search ? 6 : 5}`,
+      dataParams
     );
 
     res.json({
@@ -289,19 +296,24 @@ router.get('/inbound-history', authenticate, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
+    const search = (req.query.search || '').replace(/[^\d+]/g, '');
+
+    const searchFilter = search ? ` AND phone_number LIKE $4` : '';
+    const countParams = search ? [req.agent.id, `%${search}%`] : [req.agent.id];
+    const dataParams = search ? [req.agent.id, limit, offset, `%${search}%`] : [req.agent.id, limit, offset];
 
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM kc_call_logs WHERE agent_id = $1 AND direction = 'inbound'`,
-      [req.agent.id]
+      `SELECT COUNT(*) FROM kc_call_logs WHERE agent_id = $1 AND direction = 'inbound'${search ? ` AND phone_number LIKE $2` : ''}`,
+      countParams
     );
     const total = parseInt(countResult.rows[0].count);
 
     const result = await db.query(
       `SELECT * FROM kc_call_logs
-       WHERE agent_id = $1 AND direction = 'inbound'
+       WHERE agent_id = $1 AND direction = 'inbound'${searchFilter}
        ORDER BY started_at DESC
        LIMIT $2 OFFSET $3`,
-      [req.agent.id, limit, offset]
+      dataParams
     );
 
     // Layer 3: backfill any completed calls missing recording data
@@ -393,19 +405,26 @@ router.get('/history', authenticate, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
+    const search = (req.query.search || '').replace(/[^\d+]/g, '');
+
+    const searchFilter = search ? ` AND phone_number LIKE $2` : '';
+    const countParams = search ? [req.agent.id, `%${search}%`] : [req.agent.id];
 
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM kc_call_logs WHERE agent_id = $1`,
-      [req.agent.id]
+      `SELECT COUNT(*) FROM kc_call_logs WHERE agent_id = $1${searchFilter}`,
+      countParams
     );
     const total = parseInt(countResult.rows[0].count);
 
+    const dataSearchFilter = search ? ` AND phone_number LIKE $4` : '';
+    const dataParams = search ? [req.agent.id, limit, offset, `%${search}%`] : [req.agent.id, limit, offset];
+
     const result = await db.query(
       `SELECT * FROM kc_call_logs
-       WHERE agent_id = $1
+       WHERE agent_id = $1${dataSearchFilter}
        ORDER BY started_at DESC
        LIMIT $2 OFFSET $3`,
-      [req.agent.id, limit, offset]
+      dataParams
     );
 
     // Layer 3: backfill any completed calls missing recording data
