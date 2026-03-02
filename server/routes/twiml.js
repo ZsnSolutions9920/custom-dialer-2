@@ -89,7 +89,7 @@ router.post('/voice', async (req, res) => {
     const dial = twiml.dial({
       callerId,
       answerOnBridge: true,
-      record: 'record-from-answer-dual',
+      record: 'record-from-answer',
       recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
       recordingStatusCallbackMethod: 'POST',
     });
@@ -112,7 +112,7 @@ router.post('/voice', async (req, res) => {
         const dial = twiml.dial({
           callerId: from,
           answerOnBridge: true,
-          record: 'record-from-answer-dual',
+          record: 'record-from-answer',
           recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
           recordingStatusCallbackMethod: 'POST',
         });
@@ -129,7 +129,7 @@ router.post('/voice', async (req, res) => {
           const dial = twiml.dial({
             callerId: from,
             answerOnBridge: true,
-            record: 'record-from-answer-dual',
+            record: 'record-from-answer',
             recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
             recordingStatusCallbackMethod: 'POST',
           });
