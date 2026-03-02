@@ -78,7 +78,7 @@ export function CallProvider({ children }) {
       });
 
       device.on('incoming', (call) => {
-        console.log('Incoming call from:', call.parameters.From);
+        console.log('Incoming call from:', call.customParameters?.get('callerNumber') || call.parameters.From);
         setIncomingCall(call);
 
         call.on('cancel', () => {
@@ -158,7 +158,7 @@ export function CallProvider({ children }) {
     callRef.current = incomingCall;
     setIncomingCall(null);
 
-    const phoneNumber = incomingCall.parameters.From;
+    const phoneNumber = incomingCall.customParameters?.get('callerNumber') || incomingCall.parameters.From;
     api.logCall({
       callSid: incomingCall.parameters.CallSid,
       phoneNumber,

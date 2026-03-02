@@ -73,7 +73,9 @@ router.post('/voice', async (req, res) => {
           recordingStatusCallback: `${baseUrl}/api/twiml/recording-status`,
           recordingStatusCallbackMethod: 'POST',
         });
-        dial.client(`agent_${result.rows[0].id}`);
+        const clientEl = dial.client();
+        clientEl.identity(`agent_${result.rows[0].id}`);
+        clientEl.parameter({ name: 'callerNumber', value: from });
         console.log(`Inbound call from ${from} → routing to agent_${result.rows[0].id} (${result.rows[0].name})`);
       } else {
         // No agent owns this number — ring all active agents
@@ -89,7 +91,9 @@ router.post('/voice', async (req, res) => {
             recordingStatusCallbackMethod: 'POST',
           });
           for (const agent of allAgents.rows) {
-            dial.client(`agent_${agent.id}`);
+            const clientEl = dial.client();
+            clientEl.identity(`agent_${agent.id}`);
+            clientEl.parameter({ name: 'callerNumber', value: from });
           }
           console.log(`Inbound call from ${from} → ringing all ${allAgents.rows.length} active agents`);
         } else {

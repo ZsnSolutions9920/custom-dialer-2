@@ -6,7 +6,7 @@ export default function IncomingCallModal() {
 
   if (!incomingCall) return null;
 
-  const raw = incomingCall.parameters.From || 'Unknown';
+  const raw = incomingCall.customParameters?.get('callerNumber') || incomingCall.parameters.From || 'Unknown';
   const { flag, country, formatted } = parsePhone(raw);
 
   return (
